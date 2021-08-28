@@ -8,6 +8,7 @@ export class CdkStack extends cdk.Stack {
 
     const botTokenName: string = "SantaBotToken";
     const channelID: string = "C02AWHL5S3W";
+    const secretRegion: string = "ap-southeast-2"
 
     const botToken = secret.Secret.fromSecretCompleteArn(
       this,
@@ -17,11 +18,12 @@ export class CdkStack extends cdk.Stack {
 
     const sendLambda = new lambda.DockerImageFunction(this, "sendLambda", {
       code: lambda.DockerImageCode.fromImageAsset("./src", {
-        cmd: ["bot.send_message"],
+        cmd: ["bot.send_message_handler"],
       }),
       environment: {
         SANTA_BOT_TOKEN: botTokenName,
         CHANNEL_ID: channelID,
+        SECRET_REGION: secretRegion
       },
     });
 
@@ -30,26 +32,28 @@ export class CdkStack extends cdk.Stack {
       "collectLambda",
       {
         code: lambda.DockerImageCode.fromImageAsset("./src", {
-          cmd: ["bot.collect_response"],
+          cmd: ["bot.collect_response_handler"],
         }),
         environment: {
           SANTA_BOT_TOKEN: botTokenName,
           CHANNEL_ID: channelID,
+          SECRET_REGION: secretRegion
         },
       }
     );
 
     const santaLambda = new lambda.DockerImageFunction(this, "santaLambda", {
       code: lambda.DockerImageCode.fromImageAsset("./src", {
-        cmd: ["bot.send_santa_message"],
+        cmd: ["bot.send_santa_message_handler"],
       }),
       environment: {
         SANTA_BOT_TOKEN: botTokenName,
         CHANNEL_ID: channelID,
+        SECRET_REGION: secretRegion
       },
     });
 
-    
+
     botToken.grantRead(sendLambda);
     botToken.grantRead(collectLambda);
     botToken.grantRead(santaLambda);
