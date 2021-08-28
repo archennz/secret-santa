@@ -3,30 +3,19 @@ import sys
 import logging
 logging.basicConfig(level=logging.DEBUG)
 # Verify it works
+import json
+from functools import lru_cache
 from slack_sdk import WebClient
-
-
-client = WebClient()
-secret_name = "SantaBotToken"
-channel_id = "C02AWHL5S3W"
-# try:
-#     # Call the chat.postMessage method using the WebClient
-#     result = client.chat_postMessage(
-#         channel=channel_id, 
-#         text="Let's play secret santa!",
-#         token=token
-#     )
-#     print(result['ts'])
-#     logging.info(result)
-# except SlackApiError as e:
-#     logging.error(f"Error posting message: {e}")
-
-
 import boto3
 import base64
 from botocore.exceptions import ClientError
 
 
+client = WebClient()
+secret_name = "SantaBotToken"
+channel_id = "C02AWHL5S3W"
+
+@lru_cache
 def get_secret(secret_name):
     region_name = "ap-southeast-2"
 
@@ -70,18 +59,30 @@ def get_secret(secret_name):
         # Depending on whether the secret is a string or binary, one of these fields will be populated.
         if 'SecretString' in get_secret_value_response:
             secret = get_secret_value_response['SecretString']
-            return secret['token']
+            return json.loads(secret)['token']
         else:
-            decoded_binary_secret = base64.b64decode(get_secret_value_response['SecretBinary'])[token]
+            decoded_binary_secret = base64.b64decode(get_secret_value_response['SecretBinary'])
+            return json.loads(decoded_binary_secret)['token']
 
 def send_message(event, context):
     client = WebClient()
     channel_id = "C02AWHL5S3W"
     token = get_secret(secret_name)
-    client.chat_postMessage(
+    result = client.chat_postMessage(
         channel=channel_id, 
         text="Let's play secret santa!",
         token=token
     )
     return result['ts']
 
+# try:
+#     # Call the chat.postMessage method using the WebClient
+#     result = client.chat_postMessage(
+#         channel=channel_id, 
+#         text="Let's play secret santa!",
+#         token=token
+#     )
+#     print(result['ts'])
+#     logging.info(result)
+# except SlackApiError as e:
+#     logging.error(f"Error posting message: {e}")
