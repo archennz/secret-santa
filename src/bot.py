@@ -3,6 +3,7 @@ import sys
 import logging
 logging.basicConfig(level=logging.DEBUG)
 # Verify it works
+import os
 import json
 from functools import lru_cache
 from slack_sdk import WebClient
@@ -12,8 +13,10 @@ from botocore.exceptions import ClientError
 
 
 client = WebClient()
-secret_name = "SantaBotToken"
-channel_id = "C02AWHL5S3W"
+secret_name = os.environ['SANTA_BOT_TOKEN']
+channel_id = os.environ['CHANNEL_ID']
+# secret_name = "SantaBotToken"
+# channel_id = "C02AWHL5S3W"
 
 @lru_cache
 def get_secret(secret_name):
@@ -64,16 +67,56 @@ def get_secret(secret_name):
             decoded_binary_secret = base64.b64decode(get_secret_value_response['SecretBinary'])
             return json.loads(decoded_binary_secret)['token']
 
+
+token = get_secret(secret_name)
+
+
 def send_message(event, context):
-    client = WebClient()
-    channel_id = "C02AWHL5S3W"
-    token = get_secret(secret_name)
-    result = client.chat_postMessage(
+    response = client.chat_postMessage(
         channel=channel_id, 
         text="Let's play secret santa!",
         token=token
     )
-    return result['ts']
+    return response['ts']
+
+
+def collect_response(event, context):
+    response = client.reactions_get(
+        channel = channel_id,
+        token = token,
+        timestamp = "1630140294.000200"
+    )
+    # need to handle when the message isnt there
+    # need to handle when there are no reactions
+    # check response okay is true
+    print(response)
+    reactions = response['message'].get('reactions', [])
+    print(reactions)
+    participants = []
+    for reaction in reactions:
+        print(reaction)
+        participants += reaction['users']
+    return list(set(participants))
+
+def assign_gifts(participants):
+    # this should be a lambda that writes a batch into the queue
+    # this should push a bunch of stuff into the queue
+    pass
+
+
+
+def send_santa_message(event, context):
+    # [gift_giver, gift_receiver] = pairs
+    message = client.conversations_open(
+        token = token,
+        users = ["U02AMAUGC4V"],
+    )
+    message_id = message['channel']['id']
+    santa = client.chat_postMessage(
+    channel=message_id, 
+    text="Hello, your secret santa is <@U02AMAUGC4V>",
+    token=token
+)
 
 # try:
 #     # Call the chat.postMessage method using the WebClient
