@@ -5,6 +5,7 @@ logging.basicConfig(level=logging.DEBUG)
 # Verify it works
 import os
 import json
+import random
 from functools import lru_cache
 from slack_sdk import WebClient
 import boto3
@@ -41,10 +42,15 @@ def get_secret(name, region):
         return json.loads(decoded_binary_secret)['token']
 
 
+# set up slack client with token
 token = get_secret(secret_name, secret_region)
 client = WebClient(token = token)
 
+
 def send_message(channel_id):
+    """
+    Given channel id, sends the first secret santa message
+    """
     response = client.chat_postMessage(
         channel=channel_id, 
         text="Let's play secret santa!",
@@ -53,10 +59,18 @@ def send_message(channel_id):
 
 
 def send_message_handler(event, context):
-    return send_message(channel_id)
+    output = {
+        'timestamp': send_message(channel_id)
+    }
+    return json.dumps(output)
 
 
-def collect_response(channel_id):
+def collect_response(channel_id, timestamp):
+    """
+    Given channel id and timestamp of message, 
+    collects list of all users that reacted to message
+    note that it does not discriminate between different reacts
+    """
     response = client.reactions_get(
         channel = channel_id,
         timestamp = "1630140294.000200"
@@ -75,16 +89,43 @@ def collect_response(channel_id):
 
 
 def collect_response_handler(event, context):
-    return collect_response(channel_id, token)
+    print(event)
+    print(event['timestamp'])
+    participants = collect_response(channel_id, event['timestamp'])
+    responses = assign_gifts(participants)
+    write_to_queue()
+    return json.dumps(responses)
+
 
 def assign_gifts(participants):
-    # this should be a lambda that writes a batch into the queue
-    # this should push a bunch of stuff into the queue
-    pass
+    """
+    Given a list of slack users, creates list 
+    of secret santa pairs 
+    """
+    pairs=[]
+    total_num = len(participants)
+    if total_num >1:
+        random.shuffle(participants)
+        for index in total_num-1:
+            pairs+= (participants[index],participants[index+1])
+        pairs+= (participants[total_num], participants[0])
+    return pairs
 
+
+def write_to_queue():
+    # write to queue
+    sqs = boto3.resource('sqs')
+    QUEUE_URL = os.environ['QUEUE_URL']
+    queue = sqs.Queue(QUEUE_URL)
+    response = queue.send_message(
+        MessageBody='myMessage'
+    )
 
 
 def send_santa_message():
+    """
+    Given a pair of user, send appropriate secret santa message
+    """
     # [gift_giver, gift_receiver] = pairs
     message = client.conversations_open(
         users = ["U02AMAUGC4V"],
