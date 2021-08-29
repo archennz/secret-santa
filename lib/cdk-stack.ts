@@ -4,7 +4,7 @@ import * as sources from "@aws-cdk/aws-lambda-event-sources";
 import * as secret from "@aws-cdk/aws-secretsmanager";
 import * as sfn from "@aws-cdk/aws-stepfunctions";
 import * as tasks from "@aws-cdk/aws-stepfunctions-tasks";
-import * as sqs from "@aws-cdk/aws-sqs"
+import * as sqs from "@aws-cdk/aws-sqs";
 
 export class CdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -19,9 +19,9 @@ export class CdkStack extends cdk.Stack {
       "token",
       botTokenName
     );
-    const queue = new sqs.Queue(this, "messageQueue")
-    
-    const queueSource = new sources.SqsEventSource(queue)
+    const queue = new sqs.Queue(this, "messageQueue");
+
+    const queueSource = new sources.SqsEventSource(queue, { batchSize: 1 });
 
     const sendLambda = new lambda.DockerImageFunction(this, "sendLambda", {
       code: lambda.DockerImageCode.fromImageAsset("./src", {
@@ -45,12 +45,12 @@ export class CdkStack extends cdk.Stack {
           SANTA_BOT_TOKEN: botTokenName,
           CHANNEL_ID: channelID,
           SECRET_REGION: secretRegion,
-          QUEUE_URL: queue.queueUrl
+          QUEUE_URL: queue.queueUrl,
         },
       }
     );
 
-    queue.grantSendMessages(collectLambda)
+    queue.grantSendMessages(collectLambda);
 
     const santaLambda = new lambda.DockerImageFunction(this, "santaLambda", {
       code: lambda.DockerImageCode.fromImageAsset("./src", {
@@ -61,14 +61,17 @@ export class CdkStack extends cdk.Stack {
         CHANNEL_ID: channelID,
         SECRET_REGION: secretRegion,
       },
-      events: [queueSource]
+      events: [queueSource],
+      reservedConcurrentExecutions: 1,
+      retryAttempts: 1,
+      timeout: cdk.Duration.seconds(3),
     });
 
     botToken.grantRead(sendLambda);
     botToken.grantRead(collectLambda);
     botToken.grantRead(santaLambda);
-    queue.grantConsumeMessages(santaLambda)
-    
+    queue.grantConsumeMessages(santaLambda);
+
     const gatherParticipants = new tasks.LambdaInvoke(
       this,
       "sendFirstMessage",
@@ -88,10 +91,9 @@ export class CdkStack extends cdk.Stack {
           outputPath: "$.Payload",
         })
       );
-    
+
     const stateMachine = new sfn.StateMachine(this, "stateMachine", {
       definition: gatherParticipants,
-    })
-    
+    });
   }
 }
