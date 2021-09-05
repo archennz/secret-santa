@@ -6,9 +6,10 @@ from functools import lru_cache
 from slack_sdk import WebClient
 import boto3
 import base64
-from botocore.exceptions import ClientError
+from aws_lambda_powertools import Logger
 
-logging.basicConfig(level=logging.DEBUG)
+logger = Logger(service="Slack bot")
+
 
 secret_region = os.environ['SECRET_REGION']
 secret_name = os.environ['SANTA_BOT_TOKEN']
@@ -20,7 +21,7 @@ def get_secret(name, region):
     Given secrets name and aws region,
     retrieves secrets from the AWS secrets manager
     """
-    logging.debug("Creating aws secret manager session")
+    logger.debug("Creating aws secret manager session")
     session = boto3.session.Session()
     client = session.client(
         service_name='secretsmanager',
@@ -36,7 +37,7 @@ def get_secret(name, region):
     else:
         secret = base64.b64decode(get_secret_value_response['SecretBinary'])
 
-    logging.info("Token retrieved from secrets manager")
+    logger.debug("Token retrieved from secrets manager")
     return json.loads(secret)['token']
 
 
@@ -49,12 +50,14 @@ def send_message(channel_id):
     """
     Given channel id, sends the first secret santa message
     """
-    logging.info("Send start secret santa message")
+    logger.info(f"Send start secret santa message in channel {channel_id}")
     response = client.chat_postMessage(
         channel=channel_id, 
         text="Let's play secret santa!",
     )
-    return response['ts']
+    timestamp = response['ts']
+    logger.info(f"Start secret santa message success, message timestamp {timestamp}")
+    return timestamp
 
 
 def collect_response(channel_id, timestamp):
@@ -63,24 +66,22 @@ def collect_response(channel_id, timestamp):
     collects list of all users that reacted to message
     note that it does not discriminate between different reacts
     """
-    print("Getting reactions")
+    logger.info("Getting reactions")
     response = client.reactions_get(
         channel = channel_id,
         timestamp = timestamp
     )
-    print(response)
+    logger.debug(f"Reactions response{response}")
     # need to handle when the message isnt there
-    # need to handle when there are no reactions
     # check response okay is true
     reactions = response['message'].get('reactions', [])
-    print("reactions")
     participants = []
     for reaction in reactions:
-        print(reaction)
         participants += reaction['users']
-    logging.info("Finished getting participants")
-    print(participants)
-    return list(set(participants))
+    participants_set = list(set(participants))
+    logger.info("Finished getting participants")
+    logger.debug(f"Participants are{participants_set}")
+    return participants_set
 
 
 def assign_gifts(participants):
@@ -88,17 +89,15 @@ def assign_gifts(participants):
     Given a list of slack users, creates list 
     of secret santa pairs 
     """
-    print("Starting to pair up participants")
+    logger.info("Pairing up participants")
     pairs=[]
     total_num = len(participants)
     if total_num >1:
         random.shuffle(participants)
         for index in range(total_num-1):
             pairs.append((participants[index],participants[index+1]))
-            print(pairs)
         pairs.append((participants[total_num-1], participants[0]))
-    print("completed pairing:")
-    print(pairs)
+    logger.debug(f"completed pairing:{pairs}")
     return pairs
 
 
@@ -112,8 +111,7 @@ def write_to_queue(message):
     response = queue.send_message(
         MessageBody=message
     )
-    logging.info("Pushed message to queue")
-    print(message)
+    logger.debug(f"Pushed message to queue: {message}")
 
 
 def send_santa_message(pair):
@@ -131,6 +129,7 @@ def send_santa_message(pair):
 )
 
 
+@logger.inject_lambda_context
 def send_message_handler(event, context):
     output = {
         'timestamp': send_message(channel_id)
@@ -138,9 +137,9 @@ def send_message_handler(event, context):
     return json.dumps(output)
 
 
+@logger.inject_lambda_context
 def collect_response_handler(event, context):
-    print(event)
-    print(event['timestamp'])
+    logger.debug(f"{event}")
     participants = collect_response(channel_id, event['timestamp'])
     pairs = assign_gifts(participants)
     for pair in pairs:
@@ -149,25 +148,10 @@ def collect_response_handler(event, context):
     return json.dumps({'pairs': pairs})
 
 
+@logger.inject_lambda_context
 def send_santa_message_handler(event, context):
-    print(event)
-    print(event['Records'])
+    logger.debug(f"{event}")
     message = event['Records'][0]['body']
-    print(message)
+    logger.debug(f"Message: {message}")
     pair = json.loads(message)['pair']
-    print(pair)
     send_santa_message(pair)
-
-
-
-# try:
-#     # Call the chat.postMessage method using the WebClient
-#     result = client.chat_postMessage(
-#         channel=channel_id, 
-#         text="Let's play secret santa!",
-#         token=token
-#     )
-#     print(result['ts'])
-#     logging.info(result)
-# except SlackApiError as e:
-#     logging.error(f"Error posting message: {e}")
