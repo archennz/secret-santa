@@ -64,7 +64,7 @@ export class CdkStack extends cdk.Stack {
       events: [queueSource],
       reservedConcurrentExecutions: 1,
       retryAttempts: 1,
-      timeout: cdk.Duration.seconds(3),
+      timeout: cdk.Duration.seconds(10),
     });
 
     botToken.grantRead(sendLambda);

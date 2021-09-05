@@ -141,7 +141,7 @@ def send_message_handler(event, context):
 def collect_response_handler(event, context):
     print(event)
     print(event['timestamp'])
-    participants = collect_response(channel_id, "1630207949.001200")
+    participants = collect_response(channel_id, event['timestamp'])
     pairs = assign_gifts(participants)
     for pair in pairs:
         message_raw = {'pair': pair}
