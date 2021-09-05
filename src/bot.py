@@ -15,6 +15,7 @@ secret_region = os.environ['SECRET_REGION']
 secret_name = os.environ['SANTA_BOT_TOKEN']
 channel_id = os.environ['CHANNEL_ID']
 
+
 @lru_cache
 def get_secret(name, region):
     """
@@ -31,7 +32,8 @@ def get_secret(name, region):
         SecretId=name
     )
     # Decrypts secret using the associated KMS CMK.
-    # Depending on whether the secret is a string or binary, one of these fields will be populated.
+    # Depending on whether the secret is a string or binary,
+    # one of these fields will be populated.
     if 'SecretString' in get_secret_value_response:
         secret = get_secret_value_response['SecretString']
     else:
@@ -43,7 +45,7 @@ def get_secret(name, region):
 
 # set up slack client with token
 token = get_secret(secret_name, secret_region)
-client = WebClient(token = token)
+client = WebClient(token=token)
 
 
 def send_message(channel_id):
@@ -52,24 +54,24 @@ def send_message(channel_id):
     """
     logger.info(f"Send start secret santa message in channel {channel_id}")
     response = client.chat_postMessage(
-        channel=channel_id, 
+        channel=channel_id,
         text="Let's play secret santa!",
     )
     timestamp = response['ts']
-    logger.info(f"Start secret santa message success, message timestamp {timestamp}")
+    logger.info(f"Start secret santa message success, timestamp {timestamp}")
     return timestamp
 
 
 def collect_response(channel_id, timestamp):
     """
-    Given channel id and timestamp of message, 
+    Given channel id and timestamp of message,
     collects list of all users that reacted to message
-    note that it does not discriminate between different reacts
+    note that it processes all reactions
     """
     logger.info("Getting reactions")
     response = client.reactions_get(
-        channel = channel_id,
-        timestamp = timestamp
+        channel=channel_id,
+        timestamp=timestamp
     )
     logger.debug(f"Reactions response{response}")
     # need to handle when the message isnt there
@@ -86,16 +88,16 @@ def collect_response(channel_id, timestamp):
 
 def assign_gifts(participants):
     """
-    Given a list of slack users, creates list 
-    of secret santa pairs 
+    Given a list of slack users, creates list
+    of secret santa pairs
     """
     logger.info("Pairing up participants")
-    pairs=[]
+    pairs = []
     total_num = len(participants)
-    if total_num >1:
+    if total_num > 1:
         random.shuffle(participants)
         for index in range(total_num-1):
-            pairs.append((participants[index],participants[index+1]))
+            pairs.append((participants[index], participants[index+1]))
         pairs.append((participants[total_num-1], participants[0]))
     logger.debug(f"completed pairing:{pairs}")
     return pairs
@@ -120,17 +122,21 @@ def send_santa_message(pair):
     """
     (gift_giver, gift_receiver) = pair
     message = client.conversations_open(
-        users = [gift_giver],
+        users=[gift_giver],
     )
     message_id = message['channel']['id']
     santa = client.chat_postMessage(
-    channel=message_id, 
-    text="Hello, your secret santa is <@{}>".format(gift_receiver),
-)
+        channel=message_id,
+        text="Hello, your secret santa is <@{}>".format(gift_receiver)
+    )
 
 
 @logger.inject_lambda_context
 def send_message_handler(event, context):
+    """
+    Lambda handler that sends the start secret santa message
+    Returns json with timestamp
+    """
     output = {
         'timestamp': send_message(channel_id)
     }
@@ -139,6 +145,12 @@ def send_message_handler(event, context):
 
 @logger.inject_lambda_context
 def collect_response_handler(event, context):
+    """
+    Lambda handler that take in the timestamp of the initial 
+    message, then collects the list of all users that have reacted
+    to the message, makes the secret santa pairings and pushes
+    them into the queue
+    """
     logger.debug(f"{event}")
     participants = collect_response(channel_id, event['timestamp'])
     pairs = assign_gifts(participants)
@@ -150,6 +162,10 @@ def collect_response_handler(event, context):
 
 @logger.inject_lambda_context
 def send_santa_message_handler(event, context):
+    """
+    Given message from queue with the pairing,
+    Sends slack message to the secret santa
+    """
     logger.debug(f"{event}")
     message = event['Records'][0]['body']
     logger.debug(f"Message: {message}")
