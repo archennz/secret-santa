@@ -10,19 +10,26 @@ export class CdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // bot config
     const botTokenName: string = "SantaBotToken";
-    const channelID: string = "C02AWHL5S3W";
     const secretRegion: string = "ap-southeast-2";
+    const channelID: string = "C02AWHL5S3W";
+    // wait time for assigning secret santa pairs
+    const waitTime: cdk.Duration = cdk.Duration.seconds(5);
 
+    // get bot token
     const botToken = secret.Secret.fromSecretNameV2(
       this,
       "token",
       botTokenName
     );
-    const queue = new sqs.Queue(this, "messageQueue");
 
+    // setting up queue
+    const queue = new sqs.Queue(this, "messageQueue");
     const queueSource = new sources.SqsEventSource(queue, { batchSize: 1 });
 
+    // setting up the lambda
+    // this lambda sends the initial message
     const sendLambda = new lambda.DockerImageFunction(this, "sendLambda", {
       code: lambda.DockerImageCode.fromImageAsset("./src", {
         cmd: ["bot.send_message_handler"],
@@ -34,6 +41,9 @@ export class CdkStack extends cdk.Stack {
       },
     });
 
+    botToken.grantRead(sendLambda);
+
+    // this lambda collects the reactions and drops the secret santa pairs into the queue
     const collectLambda = new lambda.DockerImageFunction(
       this,
       "collectLambda",
@@ -50,8 +60,10 @@ export class CdkStack extends cdk.Stack {
       }
     );
 
+    botToken.grantRead(collectLambda);
     queue.grantSendMessages(collectLambda);
 
+    // this lambda polls from the queue and sends the messages to slack with the santa pairings
     const santaLambda = new lambda.DockerImageFunction(this, "santaLambda", {
       code: lambda.DockerImageCode.fromImageAsset("./src", {
         cmd: ["bot.send_santa_message_handler"],
@@ -67,11 +79,11 @@ export class CdkStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(10),
     });
 
-    botToken.grantRead(sendLambda);
-    botToken.grantRead(collectLambda);
     botToken.grantRead(santaLambda);
     queue.grantConsumeMessages(santaLambda);
 
+    // step function for sending initial message then waiting then closing submission
+    // then depositing the secret santa pairs into the queue
     const gatherParticipants = new tasks.LambdaInvoke(
       this,
       "sendFirstMessage",
@@ -82,7 +94,7 @@ export class CdkStack extends cdk.Stack {
     )
       .next(
         new sfn.Wait(this, "wait", {
-          time: sfn.WaitTime.duration(cdk.Duration.seconds(5)),
+          time: sfn.WaitTime.duration(waitTime),
         })
       )
       .next(
