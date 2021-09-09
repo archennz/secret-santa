@@ -12,21 +12,21 @@ Once triggered, the bot will send message to a slack channel of your choice
 After one week, based who has reacted to the messages,
 it collects the list of participants and send them a private message with the person who they will be giving a secret gift to.
 
-<img src="/img/santa_message.png" alt="Slack bot start message" width="400"/>
+<img src="/img/santa_message.png" alt="Slack bot start message" width="250"/>
 
 If less than two participants have reacted, then it will notify the channel that secret santa will not commence.
 
 ## Technical Details
-The app is made using several AWS lambda functions chained together using
-a step function and a message queue to send the secret santa assignment messages.
+The app made of several AWS lambda functions and a message queue to send the secret santa assignment messages.
 
 ![Slack bot architecture](/img/diagram.png)
 
-* The step function manages sending out the first welcome message as well as depositing assigned gift pairs each into the SQS queue.
+* The step function manages sending the initial welcome message and pushing assigned gift pairs each into the SQS queue.
 Once its done, it messages the slack channel confirming that pairing has been completed.
 * The send lambda prompt lambda polls the queue to send the private messages informing the gift-giver their recipients.
 Exponential back-off is used to avoid rate limiting.
-If gift pairs failed to send even after retry, it will be redirected to the dead line queue triggering a cloudwatch alarm.
+If gift pair fails to send, it will be redirected to the dead line queue triggering a cloudwatch alarm, 
+indicating that the bot has failed.
 
 ## Deploy the app on yourself
 
@@ -37,26 +37,29 @@ Then you need to install the bot to your workspace and invite the bot to your sl
 
 ### Store your token in AWS secrets manager
 
-The cdk stack expects the token to be stored as a secret in AWS secret manager. Store the OAuth token with the key as 'token'. Then make sure you put the name and region of your secret in our stack config.
+The cdk stack expects the token to be stored as a secret in AWS secret manager. Store the OAuth token with the key `'token'`.
 
 ### Configure the bot
 
 You need to set:
 
-* botTokenName: name of the AWS secrets for bot token
-* secretRegion: region of the bot secret
-* channelID: the slack channel you wish the bot to post in
+* `botTokenName`: name of the AWS secrets for bot token
+* `secretRegion`: region of the bot secret
+* `channelID`: the slack channel you wish the bot to post in
 
 Optional:
-waitTime: time waiting for users to opt in to secret santa
+* `waitTime`: time waiting for users to opt in to secret santa
 
 ### Deploy the bot on AWS
 
-The stack is deployed using the aws cdk, so you need to have `nodejs` and `npm` installed, then to install of required packages run
+The stack is deployed using the aws cdk, so you need to have `nodejs` and `npm` installed, to install of required packages run
+
 ```
 npm install .
 ```
+
 To deploy the stack, run
+
 ```
 cdk deploy
 ```
