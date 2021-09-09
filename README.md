@@ -4,10 +4,11 @@ This is a slack bot implementation of the classic game
 
 ## How it works
 Once set up, the bot will send message to a slack channel of your choice
-![Slack bot start message](/img/start_message.png)
 
-Based who has reacted to the messages, it will collect the list of willing participants and send them a private message with the person who they will be giving a secret gift to. 
-![Slack bot santa message](/img/santa_message.png)
+<img src="/img/start_message.png" alt="Slack bot start message" width="400"/>
+
+<!-- Based who has reacted to the messages, it will collect the list of willing participants and send them a private message with the person who they will be giving a secret gift to. 
+![Slack bot santa message](/img/santa_message.png) -->
 
 ## Technical Details
 The app is made using several AWS lambda functions chained together using 
