@@ -13,13 +13,13 @@ export class CdkStack extends cdk.Stack {
     super(scope, id, props);
 
     // bot config
-    const botTokenName: string = "SantaBotToken";
-    const secretRegion: string = "ap-southeast-2";
-    const channelID: string = "C02AWHL5S3W";
+    const botTokenName: string = this.node.tryGetContext("botTokenName");
+    const secretRegion: string = this.node.tryGetContext("secretRegion");
+    const channelID: string = this.node.tryGetContext("channelID");
 
 
     // wait time for assigning secret santa pairs
-    const waitTime: cdk.Duration = cdk.Duration.seconds(10);
+    const waitTime: cdk.Duration = cdk.Duration.days(7);
 
     // get bot token
     const botToken = secret.Secret.fromSecretNameV2(

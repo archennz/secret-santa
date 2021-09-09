@@ -41,7 +41,7 @@ The cdk stack expects the token to be stored as a secret in AWS secret manager. 
 
 ### Configure the bot
 
-You need to set:
+In `cdk.json`, you need to set:
 
 * `botTokenName`: name of the AWS secrets for bot token
 * `secretRegion`: region of the bot secret
