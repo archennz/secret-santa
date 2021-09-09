@@ -8,3 +8,7 @@ src/.venv
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# local configs
+.vscode
+.DS_Store

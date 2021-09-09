@@ -48,7 +48,14 @@ token = get_secret(secret_name, secret_region)
 client = WebClient(token=token)
 
 
-def send_message(channel_id):
+# Some sensible backoffed retries if rate limited
+# This handler does retries when HTTP status 429 is returned
+from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
+rate_limit_handler = RateLimitErrorRetryHandler(max_retry_count=1)
+client.retry_handlers.append(rate_limit_handler)
+
+
+def send_start_message(channel_id):
     """
     Given channel id, sends the first secret santa message
     """
@@ -74,8 +81,7 @@ def collect_response(channel_id, timestamp):
         timestamp=timestamp
     )
     logger.debug(f"Reactions response{response}")
-    # need to handle when the message isnt there
-    # check response okay is true
+    # TODO: need to handle when the message isnt there
     reactions = response['message'].get('reactions', [])
     participants = []
     for reaction in reactions:
@@ -116,6 +122,29 @@ def write_to_queue(message):
     logger.debug(f"Pushed message to queue: {message}")
 
 
+def send_ack_message(channel_id):
+    """
+    Given channel id, sends message to signal the start of next batch of messages
+    """
+    logger.debug(f"Sending confirm start secret santa message in channel {channel_id}")
+    response = client.chat_postMessage(
+        channel=channel_id,
+        text="Finished collecting responses, you will receive your assigned gift recipient soon!",
+    )
+    logger.info(f"Sent confirm start secret santa message in channel {channel_id}")
+
+
+def send_no_response_message(channel_id):
+    """
+    Given channel id, sends message to signal the start of next batch of messages
+    """
+    response = client.chat_postMessage(
+        channel=channel_id,
+        text="Not sufficient response, no secret santa",
+    )
+    logger.info(f"Sent did not start secret santa message in channel {channel_id}")
+
+
 def send_santa_message(pair):
     """
     Given a pair of user, send appropriate secret santa message
@@ -138,7 +167,7 @@ def send_message_handler(event, context):
     Returns json with timestamp
     """
     output = {
-        'timestamp': send_message(channel_id)
+        'timestamp': send_start_message(channel_id)
     }
     return json.dumps(output)
 
@@ -153,11 +182,16 @@ def collect_response_handler(event, context):
     """
     logger.debug(f"{event}")
     participants = collect_response(channel_id, event['timestamp'])
-    pairs = assign_gifts(participants)
-    for pair in pairs:
-        message_raw = {'pair': pair}
-        write_to_queue(json.dumps(message_raw))
-    return json.dumps({'pairs': pairs})
+    if len(participants) < 1:
+        send_no_response_message(channel_id)
+        return 
+    else:
+        send_ack_message(channel_id)
+        pairs = assign_gifts(participants)
+        for pair in pairs:
+            message_raw = {'pair': pair}
+            write_to_queue(json.dumps(message_raw))
+        return json.dumps({'pairs': pairs})
 
 
 @logger.inject_lambda_context
