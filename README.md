@@ -12,7 +12,7 @@ Once triggered, the bot will send message to a slack channel of your choice
 After one week, based who has reacted to the messages,
 it collects the list of participants and send them a private message with the person who they will be giving a secret gift to.
 
-<img src="/img/santa_message.png" alt="Slack bot start message" width="250"/>
+<img src="/img/santa_message.png" alt="Slack bot start message" width="300"/>
 
 If less than two participants have reacted, then it will notify the channel that secret santa will not commence.
 
