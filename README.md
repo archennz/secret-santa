@@ -47,9 +47,6 @@ In `cdk.json`, you need to set:
 * `secretRegion`: region of the bot secret
 * `channelID`: the slack channel you wish the bot to post in
 
-Optional:
-* `waitTime`: time waiting for users to opt in to secret santa
-
 ### Deploy the bot on AWS
 
 The stack is deployed using the aws cdk, so you need to have `nodejs` and `npm` installed, to install of required packages run
@@ -63,8 +60,6 @@ To deploy the stack, run
 ```
 cdk deploy
 ```
-
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
 ### Useful cdk commands
 
