@@ -16,10 +16,10 @@ export class CdkStack extends cdk.Stack {
     const botTokenName: string = "SantaBotToken";
     const secretRegion: string = "ap-southeast-2";
     const channelID: string = "C02AWHL5S3W";
-    const logGroupName: string = "bot-logs";
+
 
     // wait time for assigning secret santa pairs
-    const waitTime: cdk.Duration = cdk.Duration.seconds(5);
+    const waitTime: cdk.Duration = cdk.Duration.seconds(10);
 
     // get bot token
     const botToken = secret.Secret.fromSecretNameV2(
