@@ -1,7 +1,7 @@
 # 🎁 Secret Santa Bot 🎁
 
 This is a slack bot implementation of the classic game
-[secret santa](https://en.wikipedia.org/wiki/Secret_Santa) using AWS lambdas and AWS cdk.
+[secret santa](https://en.wikipedia.org/wiki/Secret_Santa) using AWS lambdas and AWS CDK.
 
 ## How it works
 
