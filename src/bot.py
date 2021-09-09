@@ -62,7 +62,7 @@ def send_start_message(channel_id):
     logger.info(f"Send start secret santa message in channel {channel_id}")
     response = client.chat_postMessage(
         channel=channel_id,
-        text="Let's play secret santa!",
+        text="Let's play secret santa! :gift:",
     )
     timestamp = response['ts']
     logger.info(f"Start secret santa message success, timestamp {timestamp}")
@@ -140,7 +140,7 @@ def send_no_response_message(channel_id):
     """
     response = client.chat_postMessage(
         channel=channel_id,
-        text="Not sufficient response, no secret santa",
+        text="Insufficient response, no secret santa :cry:",
     )
     logger.info(f"Sent did not start secret santa message in channel {channel_id}")
 
