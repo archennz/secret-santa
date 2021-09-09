@@ -5,8 +5,7 @@ import * as secret from "@aws-cdk/aws-secretsmanager";
 import * as sfn from "@aws-cdk/aws-stepfunctions";
 import * as tasks from "@aws-cdk/aws-stepfunctions-tasks";
 import * as sqs from "@aws-cdk/aws-sqs";
-import * as cloudwatch from "@aws-cdk/aws-cloudwatch"
-
+import * as cloudwatch from "@aws-cdk/aws-cloudwatch";
 
 export class CdkStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -16,7 +15,6 @@ export class CdkStack extends cdk.Stack {
     const botTokenName: string = this.node.tryGetContext("botTokenName");
     const secretRegion: string = this.node.tryGetContext("secretRegion");
     const channelID: string = this.node.tryGetContext("channelID");
-
 
     // wait time for assigning secret santa pairs
     const waitTime: cdk.Duration = cdk.Duration.days(7);
@@ -29,12 +27,12 @@ export class CdkStack extends cdk.Stack {
     );
 
     // setting up queue
-    const deadLetterQueue = new sqs.Queue(this, "deadLetterQueue")
+    const deadLetterQueue = new sqs.Queue(this, "deadLetterQueue");
     const queue = new sqs.Queue(this, "messageQueue", {
       deadLetterQueue: {
         maxReceiveCount: 3,
-        queue: deadLetterQueue
-      }
+        queue: deadLetterQueue,
+      },
     });
     const queueSource = new sources.SqsEventSource(queue, { batchSize: 1 });
 
@@ -118,12 +116,14 @@ export class CdkStack extends cdk.Stack {
       definition: gatherParticipants,
     });
 
-    const metric = deadLetterQueue.metricNumberOfMessagesReceived()
+    // alarm for DLQ
+    const metric = deadLetterQueue.metricNumberOfMessagesReceived();
     const alarm = new cloudwatch.Alarm(this, "dlqAlarm", {
-      alarmDescription: 'There are messages in Dead Letter Queue, some slack bot messages are not sent',
+      alarmDescription:
+        "There are messages in Dead Letter Queue, some slack bot messages are not sent",
       evaluationPeriods: 1,
       threshold: 1,
-      metric: metric
-    })
+      metric: metric,
+    });
   }
 }
